@@ -5,13 +5,17 @@
               <a href="https://github.com/xizaoqu">Zeqi Xiao<sup>1</sup></a	>
               <a href="https://williamyang1991.github.io/">Shuai Yang<sup>2</sup></a>
               <a href="https://xingangpan.github.io/">Xingang Pan<sup>1</sup></a>    <br>
-    <sup>1</sup>S-Lab, Nanyang Technological University, <br> <sup>2</sup>Wangxuan Institute of Computer Technology, Peking University<br> 
+    <sup>1</sup>S-Lab, Nanyang Technological University, <br> <sup>2</sup>Wangxuan Institute of Computer Technology, Peking University 
 
 
-<p align="center">
+<h3 align="center">
 <a href="http://zhouyifan.net/AF-LDM-Page/">  Project Page </a> |
 <a href="https://arxiv.org/abs/">  Paper </a>
-</p>
+</h3>
+
+Offical PyTorch implementation of Alias-free latent diffusion models.
+
+## Motivation
 
 https://github.com/user-attachments/assets/4fcd0c0f-4c0f-48a9-97dc-e5dcab9dd578
 
