@@ -12,7 +12,7 @@
 
 [**Project Page**](http://zhouyifan.net/AF-LDM-Page/) | [**Paper**](https://arxiv.org/abs/) 
 
-![video](https://zhouyifan.net/AF-LDM-Page/static/videos/teaser_video.mp4)
+https://github.com/user-attachments/assets/4fcd0c0f-4c0f-48a9-97dc-e5dcab9dd578
 
 We found the VAE and denoising network in LDM are not equivariant to fractional shifts. We propose an alias-free framework to improve the fractional shift equivariance of LDM. We demonstrate the effectiveness of our method in various applications, including video editing, frame interpolation, super-resolution and normal estimation. 
 
