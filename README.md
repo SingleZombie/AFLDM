@@ -10,7 +10,7 @@
 
 <h3 align="center">
 <a href="http://zhouyifan.net/AF-LDM-Page/">  Project Page </a> |
-<a href="https://arxiv.org/abs/">  Paper </a>
+<a href="https://arxiv.org/abs/2503.09419">  Paper </a>
 </h3>
 
 Offical PyTorch implementation of Alias-free latent diffusion models.
