@@ -40,7 +40,7 @@ import torch.nn.functional as F
 from ..shift_utils.flow_utils import (predict_flow, upsample_noise,
                                       continuous_noise_fwd_warp, forward_flow_warp)
 from ..af_libs.ideal_lpf import UpsampleRFFT
-from gmflow.gmflow import GMFlow
+from gmflow.gmflow.gmflow import GMFlow
 
 from .cross_frame_attn import AttnState, CrossFrameAttnProcessor
 from torchvision.utils import save_image

@@ -1,9 +1,9 @@
-# python scripts/video_editing.py \
-#     --input_path assets/car-turn.mp4 \
-#     --output_path results/car.gif \
-#     --prompt "a red car is turning" \
-#     --n_steps 50 \
-#     --strength 0.8 \
+python scripts/video_editing.py \
+    --input_path assets/car-turn.mp4 \
+    --output_path results/car.gif \
+    --prompt "a red car is turning" \
+    --n_steps 50 \
+    --strength 0.7 \
 
 # python scripts/video_editing.py \
 #     --input_path assets/tiger.mp4 \
@@ -32,12 +32,13 @@
 #     --n_frames 8 \
 #     --guidance_scale 7.5
 
-python scripts/video_editing.py \
-    --input_path assets/car-turn.mp4 \
-    --output_path results/editing/car_noaf.mp4 \
-    --prompt "a red car is turning" \
-    --n_prompt "" \
-    --n_steps 50 \
-    --strength 0.7 \
-    -no_af \
-    -mp4
+# Comparison Experiment for original Stable Diffusion 1.5
+
+# python scripts/video_editing.py \
+#     --input_path assets/car-turn.mp4 \
+#     --output_path results/car_noaf.gif \
+#     --prompt "a red car is turning" \
+#     --n_prompt "" \
+#     --n_steps 50 \
+#     --strength 0.7 \
+#     -no_af 

@@ -1,19 +1,34 @@
-import os
-import sys
-
 import numpy as np
-from numba import njit
 import torch
 import torch.nn.functional as F
 from einops import rearrange
 from .flow_utils_np import (
     flow_warp2, get_intermediate_warp_mask, forward_flow_warp)
-from torchvision.utils import save_image
 from ..af_libs.equivariance import apply_fractional_translation
 
 
-from gmflow.gmflow import GMFlow
-from gmflow.gm_utils.utils import InputPadder
+class InputPadder:
+    """ Pads images such that dimensions are divisible by 8 """
+
+    def __init__(self, dims, mode='sintel', padding_factor=8):
+        self.ht, self.wd = dims[-2:]
+        pad_ht = (((self.ht // padding_factor) + 1) *
+                  padding_factor - self.ht) % padding_factor
+        pad_wd = (((self.wd // padding_factor) + 1) *
+                  padding_factor - self.wd) % padding_factor
+        if mode == 'sintel':
+            self._pad = [pad_wd // 2, pad_wd - pad_wd //
+                         2, pad_ht // 2, pad_ht - pad_ht // 2]
+        else:
+            self._pad = [pad_wd // 2, pad_wd - pad_wd // 2, 0, pad_ht]
+
+    def pad(self, *inputs):
+        return [F.pad(x, self._pad, mode='replicate') for x in inputs]
+
+    def unpad(self, x):
+        ht, wd = x.shape[-2:]
+        c = [self._pad[2], ht - self._pad[3], self._pad[0], wd - self._pad[1]]
+        return x[..., c[0]:c[1], c[2]:c[3]]
 
 
 def coords_grid(b, h, w, homogeneous=False, device=None):

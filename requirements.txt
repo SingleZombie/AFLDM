@@ -5,3 +5,6 @@ einops
 matplotlib
 timm
 imageio-ffmpeg
+imageio
+numba
+accelerate
