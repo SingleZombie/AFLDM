@@ -13,7 +13,7 @@
 <a href="https://arxiv.org/abs/2503.09419">  Paper </a>
 </h3>
 
-Offical PyTorch implementation of Alias-free latent diffusion models.
+Official PyTorch implementation of Alias-free latent diffusion models.
 
 ## Motivation
 
@@ -81,7 +81,7 @@ This is not a blind SR. The degradation function is fixed.
 bash shift_ldm_sr.sh
 ```
 
-### Normal Esitmation Shift
+### Normal Estimation Shift
 
 ```shell
 bash shift_normal_estimation.sh
@@ -100,7 +100,7 @@ bash shift_normal_estimation.sh
 
 ## Acknowledgements
 
-* [Diffusers](https://github.com/huggingface/diffusers): Our project is bulit on diffusers.
+* [Diffusers](https://github.com/huggingface/diffusers): Our project is built on diffusers.
 * [GMFlow](https://github.com/haofeixu/gmflow): Our flow estimator.
 * [StyleGAN3](https://github.com/NVlabs/stylegan3): For sharing alias-free module implementation. 
 * [Alias-Free Convnets](https://github.com/hmichaeli/alias_free_convnets): For sharing alias-free module implementation. 
