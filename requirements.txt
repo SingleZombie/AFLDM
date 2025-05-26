@@ -8,3 +8,5 @@ imageio-ffmpeg
 imageio
 numba
 accelerate
+lpips
+safetensors

@@ -1,0 +1,1 @@
+python train.py configs/vae/train_afvae_imagenet.json
