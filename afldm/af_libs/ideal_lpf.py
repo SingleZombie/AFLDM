@@ -1,3 +1,10 @@
+##########################################################################
+
+# Adapted from https://github.com/hmichaeli/alias_free_convnets
+
+# Copyright (C) 2023 Hagay Michaeli. All rights reserved.
+
+##########################################################################
 import torch
 import torch.nn as nn
 
