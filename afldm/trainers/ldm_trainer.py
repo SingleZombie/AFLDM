@@ -1,16 +1,13 @@
-import inspect
 import os
 from dataclasses import dataclass
 
 from diffusers import AutoencoderKL, DDPMScheduler,  UNet2DModel, DDIMScheduler, VQModel
 from afldm.models.af_vae import AliasFreeAutoencoderKL
 from diffusers.optimization import get_scheduler
-from diffusers.training_utils import EMAModel, cast_training_params, compute_snr
-from diffusers.utils import check_min_version, convert_state_dict_to_diffusers, is_wandb_available
+from diffusers.training_utils import EMAModel
 import numpy as np
 import torch
 import torch.nn.functional as F
-from transformers import CLIPTextModel, CLIPTokenizer
 
 from .trainer import Trainer
 from afldm.shift_utils.shifters import gen_random_offset, ImageShifter, gen_valid_mask
@@ -19,8 +16,7 @@ from afldm.pipelines.cross_frame_attn import (CrossFrameAttnProcessor, AttnState
                                               set_unet_attn_processor)
 from afldm.pipelines.ldm_pipeline import MyLDMPipeline
 from afldm.shift_utils.metrics import mask_mse
-from line_profiler import profile
-from torchmetrics.image.fid import FrechetInceptionDistance
+from afldm.af_modules.af_api import make_af_unet
 
 
 @dataclass
@@ -33,10 +29,11 @@ class LDMTrainingConfig:
     unet_path: str = None
     prediction_type: str = 'epsilon'
 
-    mod_unet: bool = False
+    af_models: bool = False
     use_shift_loss: bool = False
     wrap_act: bool = True
     use_cross_attn: bool = True
+    use_stop_grad: bool = False
 
     max_grad_norm: float = 1.0
 
@@ -77,9 +74,10 @@ def log_validation(
         generator = generator.manual_seed(seed)
     images = []
 
+    generator = torch.Generator()
     for _ in range(num_validation_images):
         images.append(pipeline(
-            generator=generator, output_type='pil', eta=0, num_inference_steps=100).images[0])
+            generator=generator, output_type='pil', eta=0, num_inference_steps=20).images[0])
 
     for tracker in accelerator.trackers:
         phase_name = "test" if is_final_validation else "validation"
@@ -123,12 +121,12 @@ class LDMTrainer(Trainer):
         else:
             self.unet = UNet2DModel.from_config(
                 UNet2DModel.load_config(cfg.unet_config))
-        # freeze parameters of models to save more memory
+
         self.vae.requires_grad_(False)
         self.unet.train()
 
-        if cfg.mod_unet:
-            mod_unet(self.unet, True, True, cfg.wrap_act)
+        if cfg.af_models:
+            make_af_unet(self.unet)
 
         if cfg.use_ema:
             if cfg.unet_path is not None:
@@ -204,20 +202,13 @@ class LDMTrainer(Trainer):
     def models_to_train(self):
         self.unet.train()
 
-    @profile
     def training_step(self, global_step, batch) -> dict:
-        train_loss = 0.0
+
         with self.accelerator.accumulate(self.unet):
             # Convert images to latent space
             vae_input = batch["input"]
             bsz = vae_input.shape[0]
             with torch.no_grad():
-
-                # latents_0 = self.vae.encode(
-                #     vae_input[:bsz//2]).latent_dist.sample()
-                # latents_1 = self.vae.encode(
-                #     vae_input[bsz//2:]).latent_dist.sample()
-                # latents = torch.cat((latents_0, latents_1))
 
                 if self.cfg.is_vqvae:
                     latents = self.vae.encode(vae_input).latents
@@ -228,7 +219,6 @@ class LDMTrainer(Trainer):
 
             # Sample noise that we'll add to the latents
             noise = torch.randn_like(latents)
-            # noise2 = torch.randn_like(latents)
 
             # Sample a random timestep for each image
             timesteps = torch.randint(
@@ -241,13 +231,13 @@ class LDMTrainer(Trainer):
                 latents, noise, timesteps)
 
             shift_loss = 0
+            ti, tj = gen_random_offset(
+                int(128*0.75), int(128*0.75), True, 1)
+            d_factor = self.vae.downsample_ratio
+            ti /= d_factor
+            tj /= d_factor
 
             if self.cfg.use_shift_loss and self.cfg.use_cross_attn:
-                ti, tj = gen_random_offset(
-                    int(128*0.75), int(128*0.75), True, 1)
-                d_factor = self.vae.downsample_ratio
-                ti /= d_factor
-                tj /= d_factor
                 self.attn_state.reset()
                 model_pred_0 = self.unet(noisy_latents, timesteps).sample
                 self.attn_state.to_load()
@@ -263,13 +253,18 @@ class LDMTrainer(Trainer):
             if self.cfg.use_shift_loss:
                 mask = gen_valid_mask(noisy_latents.shape, ti,
                                       tj).to(noisy_latents.device)
-                shifted_noisy_latents, _ = self.shifter.translate(
+                shifted_noisy_latents, _ = self.shifter.shift(
                     noisy_latents, ti, tj)
-                target2, _ = self.shifter.translate(model_pred_0, ti, tj)
+                target2, _ = self.shifter.shift(model_pred_0, ti, tj)
                 target = target2
                 model_pred = self.unet(shifted_noisy_latents, timesteps).sample
-                shift_loss = mask_mse(model_pred.float(),
-                                      target.float(), mask)
+
+                if self.cfg.use_stop_grad:
+                    shift_loss = mask_mse(model_pred.float().detach(),
+                                          target.float(), mask)
+                else:
+                    shift_loss = mask_mse(model_pred.float(),
+                                          target.float(), mask)
 
             ori_loss = F.mse_loss(model_pred_0.float(),
                                   noise.float(), reduction="mean")
@@ -277,14 +272,6 @@ class LDMTrainer(Trainer):
             mse_loss = shift_loss + ori_loss
 
             loss = mse_loss
-
-            train_batch_size = latents.shape[0]
-
-            # Gather the losses across all processes for logging (if we use distributed training).
-            # avg_loss = self.accelerator.gather(
-            #     loss.repeat(train_batch_size)).mean()
-            # train_loss += avg_loss.item() /
-            #   self.accelerator.gradient_accumulation_steps
 
             # Backpropagate
             self.accelerator.backward(loss)

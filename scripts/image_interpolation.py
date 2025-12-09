@@ -54,6 +54,7 @@ if __name__ == '__main__':
 
     pipe: ImageInterpolationPipeline = ImageInterpolationPipeline.from_pretrained(
         'SingleZombie/alias_free_sd15',
+        # 'stable-diffusion-v1-5/stable-diffusion-v1-5'
     ).to('cuda')
 
     make_af_unet(pipe.unet)

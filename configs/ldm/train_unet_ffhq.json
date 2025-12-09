@@ -1,0 +1,27 @@
+{
+    "base": {
+        "logging_dir": "logs",
+        "output_dir": "train_ckpt/ffhq_uncond_afldm",
+        "checkpointing_steps": 5000,
+        "valid_epochs": 1000,
+        "valid_steps": 5000,
+        "save_model_epochs": 2,
+        "dataset_name": "merkol/ffhq-256",
+        "resolution": 256,
+        "train_batch_size": 16,
+        "num_epochs": 100,
+        "resume_from_checkpoint": "latest",
+        "checkpoints_total_limit": 5
+    },
+    "ldm": {
+        "vae_path": "train_ckpt/afvae_imagenet",
+        "unet_config": "configs/ldm/model_unet.json",
+        "scheduler_path": "configs/ldm/noise_scheduler.json",
+        "learning_rate": 1e-4,
+        "valid_batch_size": 4,
+        "af_models": true,
+        "use_shift_loss": true,
+        "use_ema": true,
+        "use_cross_attn": true
+    }
+}

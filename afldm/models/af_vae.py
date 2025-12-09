@@ -28,9 +28,9 @@ class AliasFreeAutoencoderKL(AutoencoderKL, ModelMixin):
                  use_post_quant_conv: bool = True,
                  mid_block_add_attention: bool = True,
                  mod_mid_act=True,
-                down_filtered_act=[True, True, True, True],
-                up_filtered_act=[True, True, True, True],
-                up_rescale=[True, True, True]):
+                 down_filtered_act=[True, True, True, True],
+                 up_filtered_act=[True, True, True, True],
+                 up_rescale=[True, True, True]):
         super().__init__(in_channels, out_channels, down_block_types,
                          up_block_types, block_out_channels, layers_per_block,
                          act_fn, latent_channels, norm_num_groups,

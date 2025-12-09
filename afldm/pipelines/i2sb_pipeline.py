@@ -41,7 +41,6 @@ class I2SBLDMPipeline(MyLDMPipeline):
         latents = img_tensor.to(device=self.device, dtype=self.unet.dtype)
         latents = self.vae.encode(
             latents).latent_dist.sample() * self.vae.config.scaling_factor
-        xn = latents
 
         self.scheduler.set_timesteps(num_inference_steps)
 

@@ -4,6 +4,7 @@ import math
 import os
 import shutil
 from datetime import datetime
+from typing import Optional, List
 
 import accelerate
 import datasets
@@ -20,6 +21,7 @@ from tqdm.auto import tqdm
 import diffusers
 from diffusers.utils import check_min_version, is_tensorboard_available, is_wandb_available
 from diffusers.utils.import_utils import is_xformers_available
+from torch.utils.data import DataLoader
 
 from afldm.trainers.training_cfg import BaseTrainingConfig, load_training_config
 from afldm.trainers.trainer import Trainer, create_trainer
@@ -141,8 +143,8 @@ def main():
     if cfg.is_imagenet:
         class ImagenetDataset(torch.utils.data.Dataset):
 
-            def __init__(self, dataset_folder, 
-                         regularization_file, 
+            def __init__(self, dataset_folder,
+                         regularization_file,
                          transforms):
 
                 self.transforms = transforms
@@ -178,7 +180,7 @@ def main():
         # Create a meta file if it does not exist
         regularization_file = f'{cfg.train_data_dir}/metadata.jsonl'
         if not os.path.exists(regularization_file):
-            base_dir = cfg.train_data_dir # imagenet dir
+            base_dir = cfg.train_data_dir
             with open(regularization_file, 'w') as f:
                 for folder in os.listdir(base_dir):
                     folder_path = os.path.join(base_dir, folder)
@@ -186,8 +188,9 @@ def main():
                         for image_name in os.listdir(folder_path):
                             image_path = os.path.join(folder, image_name)
                             if image_name.lower().endswith(('.png', '.jpg', '.jpeg')):
-                                f.write(json.dumps({"image": image_path}) + '\n')
-        
+                                f.write(json.dumps(
+                                    {"image": image_path}) + '\n')
+
         dataset = ImagenetDataset(
             cfg.train_data_dir, regularization_file, train_transforms)
 
@@ -196,7 +199,7 @@ def main():
                 [example["image"] for example in examples])
             image = image.to(
                 memory_format=torch.contiguous_format).float()
-            
+
             return {"input": image}
 
         # DataLoaders creation:
@@ -392,7 +395,6 @@ def main():
 
             if epoch % cfg.save_model_epochs == 0 or epoch == cfg.num_epochs - 1:
                 trainer.save_pipeline(cfg.output_dir)
-
 
     accelerator.end_training()
 

@@ -8,14 +8,12 @@ from diffusers.optimization import get_scheduler
 import numpy as np
 import torch
 import torch.nn.functional as F
-from safetensors.torch import load_file
 import lpips
 
 from .trainer import Trainer
 from afldm.shift_utils.shifters import ImageShifter, gen_random_offset
 from afldm.shift_utils.metrics import mask_mse, psnr
 from afldm.models.discriminator import Discriminator
-
 
 
 def calculate_adaptive_weight(rec_loss, g_loss, last_layer):
@@ -73,9 +71,10 @@ class VAETrainer(Trainer):
         cfg = self.cfg
         # Load scheduler, tokenizer and models.
         model = AutoencoderKLTraining.from_config(
-                AutoencoderKLTraining.load_config(cfg.model_cfg))
+            AutoencoderKLTraining.load_config(cfg.model_cfg))
         if cfg.pretrained_model_name_or_path is not None:
-            tmp_model = AutoencoderKL.from_pretrained(cfg.pretrained_model_name_or_path)
+            tmp_model = AutoencoderKL.from_pretrained(
+                cfg.pretrained_model_name_or_path)
             model_dict = tmp_model.state_dict()
             model.load_state_dict(model_dict)
 
@@ -152,7 +151,8 @@ class VAETrainer(Trainer):
 
         if self.cfg.use_shift_loss:
             self.img_shifter = ImageShifter('ideal_crop', 1)
-            self.latent_shifter = ImageShifter('ideal_crop', self.model.downsample_ratio)
+            self.latent_shifter = ImageShifter(
+                'ideal_crop', self.model.downsample_ratio)
 
     def models_to_train(self):
         self.model.train()
@@ -176,16 +176,14 @@ class VAETrainer(Trainer):
                 latents = latent_dist.sample()
                 recon_input_batch = self.model(latents, False).sample
                 _, _, h, w = recon_input_batch.shape
-                
 
                 mse_loss = F.mse_loss(input_batch.float(),
-                                        recon_input_batch.float(),
-                                        reduction="mean")
+                                      recon_input_batch.float(),
+                                      reduction="mean")
                 perceptual_loss = self.perceptual_loss_fn(input_batch.float(),
-                                                         recon_input_batch.float())
+                                                          recon_input_batch.float())
                 perceptual_loss = torch.sum(perceptual_loss) / bsz
 
-                
                 if self.cfg.use_shift_loss:
                     ti, tj = gen_random_offset(
                         h * 0.75 // 2, w * 0.75 // 2, True, 1)
@@ -211,11 +209,6 @@ class VAETrainer(Trainer):
                     f_t_x = self.model(t_x, False).sample
                     dec_loss = mask_mse(f_t_x, t_f_x, mask)
                     shift_loss = (enc_loss + dec_loss)
-                    # from torchvision.utils import save_image
-                    # save_image((f_t_x + 1) / 2, 'tmp/1.png')
-                    # save_image((t_f_x + 1) / 2, 'tmp/2.png')
-                    # exit(0)
-                
 
                 if self.cfg.use_disc:
                     disc_loss = -self.discriminator(recon_input_batch).mean()
@@ -232,10 +225,10 @@ class VAETrainer(Trainer):
                 log_dict['mse_loss'] = mse_loss.item()
                 log_dict['shift_loss'] = shift_loss.item()
                 loss = mse_loss + shift_loss + \
-                        self.cfg.perceptual_weight * perceptual_loss + \
-                        self.cfg.kl_weight * kl_loss + \
-                        disc_weight * disc_loss
-                
+                    self.cfg.perceptual_weight * perceptual_loss + \
+                    self.cfg.kl_weight * kl_loss + \
+                    disc_weight * disc_loss
+
                 self.accelerator.backward(loss)
                 if self.accelerator.sync_gradients:
                     params_to_clip = self.model.parameters()

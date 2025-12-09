@@ -1,16 +1,13 @@
-import inspect
 import os
 from dataclasses import dataclass
 
-from diffusers import AutoencoderKL,  UNet2DModel
+from diffusers import UNet2DModel
 from afldm.models.af_vae import AliasFreeAutoencoderKL
 from diffusers.optimization import get_scheduler
-from diffusers.training_utils import EMAModel, cast_training_params, compute_snr
-from diffusers.utils import check_min_version, convert_state_dict_to_diffusers, is_wandb_available
+from diffusers.training_utils import EMAModel
 import numpy as np
 import torch
 import torch.nn.functional as F
-from transformers import CLIPTextModel, CLIPTokenizer
 
 
 from torchmetrics import PeakSignalNoiseRatio
@@ -24,8 +21,7 @@ from ..pipelines.cross_frame_attn import (CrossFrameAttnProcessor, AttnState,
 from ..pipelines.i2sb_pipeline import I2SBLDMPipeline
 from ..shift_utils.metrics import mask_mse
 from ..schedulers.i2sb_scheduler import I2SBScheduler
-
-from line_profiler import profile
+from afldm.af_modules.af_api import make_af_unet
 
 
 class DegradTransform(torch.nn.Module):
@@ -44,7 +40,7 @@ class I2SBLDMTrainingConfig:
     vae_path: str = None
     unet_config: str = None
     unet_path: str = None
-    mod_unet: bool = True
+    af_models: bool = True
     is_ode: bool = True
     use_cfa: bool = False
 
@@ -106,11 +102,7 @@ def log_validation(
     images = res_cat.cpu().permute(0, 2, 3, 1).numpy()
     images = pipeline.numpy_to_pil(images)
 
-    shift_loss = valid_i2sb_pipe_shift_equivariance(
-        pipeline, True, lq_images, filter='ideal_crop', num_inference_steps=50, shift_input=True)
-
-    accelerator.log({'mse': mse, 'psnr': psnr,
-                    'shift_loss': shift_loss}, step=step)
+    accelerator.log({'mse': mse, 'psnr': psnr}, step=step)
 
     for tracker in accelerator.trackers:
         phase_name = "test" if is_final_validation else "validation"
@@ -154,8 +146,8 @@ class I2SBTrainer(Trainer):
         self.vae.requires_grad_(False)
         self.unet.train()
 
-        if cfg.mod_unet:
-            mod_unet(self.unet, True, True)
+        if cfg.af_models:
+            make_af_unet(self.unet)
 
         if cfg.use_ema:
             ema_unet = UNet2DModel.from_config(
@@ -205,8 +197,9 @@ class I2SBTrainer(Trainer):
                                 * num_epochs)
         )
 
-    def set_dataset(self, dataset, train_dataloader):
-        super().set_dataset(dataset, train_dataloader)
+    def set_dataset(self, dataset, train_dataloader, valid_dataset=None,
+                    valid_dataloader=None):
+        super().set_dataset(dataset, train_dataloader, valid_dataset, valid_dataloader)
         valid_ids = np.random.choice(
             len(dataset), self.cfg.valid_batch_size, replace=False).tolist()
 
@@ -221,9 +214,9 @@ class I2SBTrainer(Trainer):
                               for x in self.hq_images]
         else:
             degrad_func = build_sr4x(
-                'cpu', 'bicubic', dataset[0]["input"].shape[2])
+                'cpu', 'bicubic', dataset[0]["image"].shape[2])
 
-            self.hq_images = [dataset[id]["input"].unsqueeze(0)
+            self.hq_images = [dataset[id]["image"].unsqueeze(0)
                               for id in valid_ids]
 
             self.lq_images = [degrad_func(x).clip(-1, 1)
@@ -248,9 +241,7 @@ class I2SBTrainer(Trainer):
     def models_to_train(self):
         self.unet.train()
 
-    @profile
     def training_step(self, global_step, batch) -> dict:
-        train_loss = 0.0
         shift_loss = 0.0
         with self.accelerator.accumulate(self.unet):
             # Convert images to latent space
@@ -261,11 +252,6 @@ class I2SBTrainer(Trainer):
                 self.accelerator.device, 'bicubic', vae_input.shape[2])
             with torch.no_grad():
 
-                # latents_0 = self.vae.encode(
-                #     vae_input[:bsz//2]).latent_dist.mode()
-                # latents_1 = self.vae.encode(
-                #     vae_input[bsz//2:]).latent_dist.mode()
-                # latents = torch.cat((latents_0, latents_1))
                 latents = self.vae.encode(vae_input).latent_dist.mode()
                 latents = latents * self.vae.config.scaling_factor
                 latents = latents.to(dtype=self.weight_dtype)
@@ -277,7 +263,6 @@ class I2SBTrainer(Trainer):
 
             # Sample noise that we'll add to the latents
             noise = torch.randn_like(latents)
-            # noise2 = torch.randn_like(latents)
 
             # Sample a random timestep for each image
             timesteps = torch.randint(
@@ -309,19 +294,11 @@ class I2SBTrainer(Trainer):
             mask = gen_valid_mask(noisy_latents.shape, ti,
                                   tj).to(noisy_latents.device)
 
-            # shifted_target, mask = self.shifter.translate(noise, ti, tj)
-            shifted_noisy_latents, _ = self.shifter.translate(
+            shifted_noisy_latents, _ = self.shifter.shift(
                 noisy_latents, ti, tj)
 
-            # noisy_black_latents = self.noise_scheduler.add_noise(
-            #     self.black_latent, noise2, timesteps)
-            # shifted_noisy_latents = shifted_noisy_latents * \
-            #     mask + noisy_black_latents * (1-mask)
-
-            # target1 = shifted_target
-
-            if self.cfg.mod_unet:
-                target2, _ = self.shifter.translate(model_pred_0, ti, tj)
+            if self.cfg.af_models:
+                target2, _ = self.shifter.shift(model_pred_0, ti, tj)
 
                 target = target2
 
@@ -330,22 +307,12 @@ class I2SBTrainer(Trainer):
                 shift_loss = mask_mse(model_pred.float(),
                                       target.float(), mask)
 
-            # shifted_ori_loss = mask_mse(model_pred.float(),
-            #                             target1.float(), mask)
             ori_loss = F.mse_loss(model_pred_0.float(),
                                   label.float(), reduction="mean")
 
             mse_loss = shift_loss + ori_loss
 
             loss = mse_loss
-
-            train_batch_size = latents.shape[0]
-
-            # Gather the losses across all processes for logging (if we use distributed training).
-            # avg_loss = self.accelerator.gather(
-            #     loss.repeat(train_batch_size)).mean()
-            # train_loss += avg_loss.item() /
-            #   self.accelerator.gradient_accumulation_steps
 
             # Backpropagate
             self.accelerator.backward(loss)
