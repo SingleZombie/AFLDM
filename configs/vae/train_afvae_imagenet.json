@@ -1,0 +1,23 @@
+{
+    "base": {
+        "logging_dir": "logs",
+        "output_dir": "train_ckpt/afvae_imagenet",
+        "checkpointing_steps": 2000,
+        "valid_epochs": 0,
+        "valid_steps": 1000,
+        "save_model_epochs": 1,
+        "resolution": 256,
+        "train_batch_size": 4,
+        "num_epochs": 5,
+        "is_imagenet": true,
+        "train_data_dir": "data/train",
+        "resume_from_checkpoint": "latest",
+        "checkpoints_total_limit": 5
+    },
+    "vae": {
+        "model_cfg": "configs/vae/model_afvae.json",
+        "pretrained_model_name_or_path": "stabilityai/sd-vae-ft-mse",
+        "learning_rate": 1e-5,
+        "use_shift_loss": true
+    }
+}

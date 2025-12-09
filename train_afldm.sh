@@ -1,0 +1,1 @@
+python train.py configs/ldm/train_unet_ffhq.json

@@ -1,0 +1,1 @@
+python train.py configs/sr/train_i2sb_imagenet.json

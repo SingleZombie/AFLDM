@@ -1,0 +1,26 @@
+{
+    "base": {
+        "logging_dir": "logs",
+        "output_dir": "train_ckpt/imagenet_sr_i2sb",
+        "checkpointing_steps": 2000,
+        "valid_epochs": 1000,
+        "valid_steps": 5000,
+        "save_model_epochs": 1,
+        "train_data_dir": "data/train",
+        "resolution": 256,
+        "train_batch_size": 16,
+        "num_epochs": 1,
+        "resume_from_checkpoint": "latest",
+        "checkpoints_total_limit": 5,
+        "is_imagenet": true
+    },
+    "i2sb": {
+        "vae_path": "train_ckpt/ffhq_uncond_afldm/vae",
+        "unet_path": "train_ckpt/ffhq_uncond_afldm/unet",
+        "scheduler_path": "configs/ldm/noise_scheduler.json",
+        "learning_rate": 5e-5,
+        "valid_batch_size": 4,
+        "af_models": true,
+        "use_cfa": true
+    }
+}

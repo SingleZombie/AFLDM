@@ -22,3 +22,5 @@ profile*
 *.pt
 *.zip
 nohup.out
+*.txt
+data

@@ -77,6 +77,8 @@ class MyLDMPipeline(DiffusionPipeline):
                 returned where the first element is a list with the generated images
         """
 
+        self.scheduler = DDIMScheduler.from_config(self.scheduler.config)
+
         if latents is None:
             latents = randn_tensor(
                 (batch_size, self.unet.config.in_channels,

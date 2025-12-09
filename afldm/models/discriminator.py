@@ -4,7 +4,8 @@ from torch import nn
 from diffusers.configuration_utils import ConfigMixin, register_to_config
 from diffusers.models.modeling_utils import ModelMixin
 
-from .fir_resblock import wrap_nonlinearity, LPF_RFFT, KaiserDownsample
+from ..af_modules.af_blocks import LPF_RFFT
+from ..af_modules.af_api import wrap_nonlinearity
 
 
 class DownsampleLPFConv(nn.Conv2d):
@@ -18,18 +19,11 @@ class DownsampleLPFConv(nn.Conv2d):
                  bias: bool = True,
                  padding_mode: str = 'zeros',
                  device=None,
-                 dtype=None,
-                 use_kaiser=False) -> None:
+                 dtype=None) -> None:
         super().__init__(in_channels, out_channels, kernel_size, stride,
                          padding, dilation, groups, bias, padding_mode, device, dtype)
         self.stride = 1
-
-        self.use_kaiser = use_kaiser
-
-        if use_kaiser:
-            self.down_layer = KaiserDownsample(2)
-        else:
-            self.lpf = LPF_RFFT()
+        self.lpf = LPF_RFFT()
 
     def forward(self, x):
         x = super().forward(x)
