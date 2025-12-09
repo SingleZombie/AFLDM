@@ -13,7 +13,7 @@
 <a href="https://arxiv.org/abs/2503.09419">  Paper </a>
 </h3>
 
-Offical PyTorch implementation of Alias-free latent diffusion models.
+Official PyTorch implementation of Alias-free latent diffusion models.
 
 ## Motivation
 
@@ -23,12 +23,13 @@ We found the VAE and denoising network in LDM are not equivariant to fractional 
 
 ## TODO
 
-- [ ] Chinese/English blog posts
+- [x] Chinese blog posts
 - [ ] Refine documents
-- [ ] Training scripts
+- [x] Training scripts
 
 ## Update
 
+* \[12/2025\]: Training code relased.
 * \[03/2025\]: Repository created.
 
 ## Installation
@@ -81,11 +82,45 @@ This is not a blind SR. The degradation function is fixed.
 bash shift_ldm_sr.sh
 ```
 
-### Normal Esitmation Shift
+### Normal Estimation Shift
 
 ```shell
 bash shift_normal_estimation.sh
 ```
+
+## Training
+
+### ImageNet Dataset
+
+Download ImageNet (`ILSVRC2012_img_train.tar`) and extract the sub files. The organization of directory should be like:
+
+```
+train
+├── n01440764
+└── n01443537
+...
+```
+
+### Alias-free VAE
+
+1. Update `train_data_dir` with your ImageNet path in `configs/vae/train_afvae_imagenet.json`.
+
+2. Run script. `bash train_afvae.sh`
+
+### Alias-free LDM
+
+1. Run script. `bash train_afldm.sh`
+
+2. Update path in `scripts/shift_ldm_ffhq.py` with `train_ckpt/ffhq_uncond_afldm` (the default output diretory set in `configs/ldm/train_unet_ffhq.json`). Run the script `bash shift_ldm_ffhq.sh` to test the results.
+
+### Alias-free Latent I2SB Super Resolution
+
+1. Update `train_data_dir` with your ImageNet path in `configs/sr/train_i2sb_imagenet.json`.
+
+2. Run script. `bash train_af_i2sb_sr.sh`
+
+3. Update path in `scripts/shift_ldm_sr.py` with `train_ckpt/imagenet_sr_i2sb` (the default output diretory set in `configs/sr/train_i2sb_imagenet.json`). Run the script `bash shift_ldm_sr.sh` to test the results.
+
 
 ## Citation
 
@@ -100,7 +135,7 @@ bash shift_normal_estimation.sh
 
 ## Acknowledgements
 
-* [Diffusers](https://github.com/huggingface/diffusers): Our project is bulit on diffusers.
+* [Diffusers](https://github.com/huggingface/diffusers): Our project is built on diffusers.
 * [GMFlow](https://github.com/haofeixu/gmflow): Our flow estimator.
 * [StyleGAN3](https://github.com/NVlabs/stylegan3): For sharing alias-free module implementation. 
 * [Alias-Free Convnets](https://github.com/hmichaeli/alias_free_convnets): For sharing alias-free module implementation. 
